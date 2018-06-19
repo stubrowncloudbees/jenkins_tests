@@ -20,7 +20,7 @@ env.DOCKER_IMAGE = "stuartcbrown/jentest:${DOCKER_VERSION}"
 pipeline {
     agent { 
         node {
-            label 'default-java' 
+            label 'gen-docker' 
         }
     }
 
