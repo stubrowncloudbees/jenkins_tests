@@ -1,0 +1,78 @@
+import hudson.model.*
+import hudson.EnvVars
+import groovy.json.JsonSlurperClassic
+import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
+import java.net.URL
+
+currentBuild.displayName = "#" + currentBuild.number + " - " + env.BRANCH_NAME
+
+if (env.BRANCH_NAME == "master") {
+    env.ENV_SUFFIX = ""
+} else {
+    env.ENV_SUFFIX = ".qa"
+}
+echo "the branch name is " + env.BRANCH_NAME
+env.DOCKER_VERSION = env.BRANCH_NAME.replaceAll("/", ".") + ".${BUILD_NUMBER}" + env.ENV_SUFFIX
+
+env.DOCKER_IMAGE = "stuartcbrown/jentest:${DOCKER_VERSION}"
+
+pipeline {
+    agent { 
+        node {
+            label 'gen-docker' 
+        }
+    }
+
+
+    stages {
+        stage('Build'){
+            steps {
+                
+                    script (){
+                        docker.withRegistry('https://registry.hub.docker.com','docker_creds') {
+                            sh 'rm -rf build.name'
+                            sh "echo '$DOCKER_IMAGE' > build.name"
+                            def dockerImageName = readFile('build.name').trim()
+                            def dockerImage = docker.build(dockerImageName, ".")
+                            echo "running"
+                           
+                        }
+                    }
+                }
+            
+        }
+
+        stage('Tests'){
+            steps {
+                
+                    echo "nothing"
+                
+            }
+        }
+    }
+    
+    post {
+        // always, unstable, aborted, failure, success, changed
+        success {
+             //sh "docker push ${DOCKER_IMAGE}"
+            
+            echo "SUCCESS - available as ${DOCKER_IMAGE}"
+            script () {
+                currentBuild.displayName = currentBuild.displayName + " ${DOCKER_VERSION}"
+               
+                
+            }
+        }
+        unstable {
+            echo 'UNSTABLE'
+        }
+        failure {
+            echo 'FAILED'
+            sh "docker rmi ${DOCKER_IMAGE}"
+        }
+        always {
+            echo 'DONE'
+        }
+    }
+}
